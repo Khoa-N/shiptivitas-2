@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  return res.status(200).send({'message': 'SHIPTIVITY API. Read documentation to see API docs'});
+  return res.status(200).send({ 'message': 'SHIPTIVITY API. Read documentation to see API docs' });
 });
 
 // We are keeping one connection alive for the rest of the life application for simplicity
@@ -26,8 +26,8 @@ const validateId = (id) => {
     return {
       valid: false,
       messageObj: {
-      'message': 'Invalid id provided.',
-      'long_message': 'Id can only be integer.',
+        'message': 'Invalid id provided.',
+        'long_message': 'Id can only be integer.',
       },
     };
   }
@@ -36,8 +36,8 @@ const validateId = (id) => {
     return {
       valid: false,
       messageObj: {
-      'message': 'Invalid id provided.',
-      'long_message': 'Cannot find client with that id.',
+        'message': 'Invalid id provided.',
+        'long_message': 'Cannot find client with that id.',
       },
     };
   }
@@ -55,8 +55,8 @@ const validatePriority = (priority) => {
     return {
       valid: false,
       messageObj: {
-      'message': 'Invalid priority provided.',
-      'long_message': 'Priority can only be positive integer.',
+        'message': 'Invalid priority provided.',
+        'long_message': 'Priority can only be positive integer.',
       },
     };
   }
@@ -92,7 +92,7 @@ app.get('/api/v1/clients', (req, res) => {
  * GET /api/v1/clients/{client_id} - get client by id
  */
 app.get('/api/v1/clients/:id', (req, res) => {
-  const id = parseInt(req.params.id , 10);
+  const id = parseInt(req.params.id, 10);
   const { valid, messageObj } = validateId(id);
   if (!valid) {
     res.status(400).send(messageObj);
@@ -115,7 +115,7 @@ app.get('/api/v1/clients/:id', (req, res) => {
  *
  */
 app.put('/api/v1/clients/:id', (req, res) => {
-  const id = parseInt(req.params.id , 10);
+  const id = parseInt(req.params.id, 10);
   const { valid, messageObj } = validateId(id);
   if (!valid) {
     res.status(400).send(messageObj);
@@ -126,9 +126,21 @@ app.put('/api/v1/clients/:id', (req, res) => {
   const client = clients.find(client => client.id === id);
 
   /* ---------- Update code below ----------*/
-
-
-
+  let statusCount = db.prepare("SELECT * FROM clients WHERE status=$status").all({ status: status }).length;
+  if (status != client.status && priority == null) {
+    db.prepare("UPDATE clients SET priority= priority - 1 WHERE status=$status AND priority > $priority").run({ priority: client.priority, status: client.status, id: client.id });
+    db.prepare("UPDATE clients SET priority=$priority, status=$status WHERE id=$id").run({ priority: ++statusCount, status: status, id: client.id });
+  }
+  else if (status == client.status && priority != null) {
+    db.prepare("UPDATE clients SET priority=priority - 1 WHERE priority > $priority AND status=$status").run({ priority: client.priority, status: status });
+    db.prepare("UPDATE clients SET priority=priority + 1 WHERE priority >= $priority AND status=$status").run({ priority: priority, status: status });
+    db.prepare("UPDATE clients SET priority=$priority WHERE id=$id").run({ priority: priority, id: client.id });
+  }
+  else if (status != client.status && priority != null) {
+    db.prepare("UPDATE clients SET priority= priority - 1 WHERE status=$status AND priority > $priority").run({ priority: client.priority, status: client.status, id: client.id });
+    db.prepare("UPDATE clients SET priority=priority + 1 WHERE priority >= $priority AND status=$status").run({ priority: priority, status: status });
+    db.prepare("UPDATE clients SET priority=$priority, status=$status WHERE id=$id").run({ priority: priority, status: status, id: client.id });
+  }
   return res.status(200).send(clients);
 });
 
